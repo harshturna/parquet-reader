@@ -29,6 +29,7 @@ export interface AppState {
   sqlResult: SqlResult | null;
   globalFilter: string;
   showColumnFilters: boolean;
+  gridDisplayedRowCount: number | null;
 }
 
 export type AppAction =
@@ -41,4 +42,5 @@ export type AppAction =
   | { type: 'SET_SQL_RESULT'; result: SqlResult | null }
   | { type: 'SET_GLOBAL_FILTER'; filter: string }
   | { type: 'TOGGLE_COLUMN_FILTERS' }
+  | { type: 'SET_GRID_ROW_COUNT'; rowCount: number }
   | { type: 'RESET' };

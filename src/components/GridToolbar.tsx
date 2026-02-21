@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Download, FilePlus, Filter, Search } from 'lucide-react';
 
 export function GridToolbar() {
-  const { globalFilter, customSQL, metadata, showColumnFilters } = useAppState();
+  const { globalFilter, customSQL, sqlResult, metadata, showColumnFilters, gridDisplayedRowCount } = useAppState();
   const dispatch = useAppDispatch();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,7 +40,13 @@ export function GridToolbar() {
       </div>
       {metadata && (
         <span className="whitespace-nowrap text-xs text-muted-foreground">
-          {formatNumber(metadata.rowCount)} rows · {formatNumber(metadata.schema.length)} columns
+          {(() => {
+            const rowCount = gridDisplayedRowCount ?? metadata.rowCount;
+            const colCount = customSQL && sqlResult ? sqlResult.columns.length : metadata.schema.length;
+            const isFiltered = gridDisplayedRowCount !== null &&
+              (gridDisplayedRowCount !== metadata.rowCount || colCount !== metadata.schema.length);
+            return `${formatNumber(rowCount)} rows · ${formatNumber(colCount)} columns${isFiltered ? ' (filtered)' : ''}`;
+          })()}
         </span>
       )}
       <Button

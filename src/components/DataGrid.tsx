@@ -16,7 +16,7 @@ import {
   type CellDoubleClickedEvent,
 } from 'ag-grid-community';
 import { toast } from 'sonner';
-import { useAppState } from '@/context/AppContext';
+import { useAppState, useAppDispatch } from '@/context/AppContext';
 import { createDuckDBDatasource } from '@/datasource/duckdbDatasource';
 import { columnsToColDefs } from '@/utils/typeMapper';
 
@@ -43,6 +43,7 @@ const darkTheme = themeQuartz.withPart(colorSchemeDark).withParams({
 export function DataGrid() {
   const { metadata, duckdbReady, sqlResult, customSQL, globalFilter, showColumnFilters } =
     useAppState();
+  const dispatch = useAppDispatch();
   const gridRef = useRef<GridApi>(null);
   const globalFilterRef = useRef(globalFilter);
 
@@ -66,8 +67,10 @@ export function DataGrid() {
 
   const datasource = useMemo(() => {
     if (!duckdbReady || columns.length === 0) return undefined;
-    return createDuckDBDatasource(baseTable, columnNames, () => globalFilterRef.current);
-  }, [duckdbReady, columns.length, baseTable, columnNames]);
+    return createDuckDBDatasource(baseTable, columnNames, () => globalFilterRef.current, (count) => {
+      dispatch({ type: 'SET_GRID_ROW_COUNT', rowCount: count });
+    });
+  }, [duckdbReady, columns.length, baseTable, columnNames, dispatch]);
 
   // Set datasource on grid when it changes
   useEffect(() => {
@@ -113,7 +116,7 @@ export function DataGrid() {
   }
 
   return (
-    <div className="flex-1 p-1">
+    <div className="flex-1 p-2">
       <AgGridReact
         theme={darkTheme}
         columnDefs={columns}

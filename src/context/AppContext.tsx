@@ -18,6 +18,7 @@ const initialState: AppState = {
   sqlResult: null,
   globalFilter: '',
   showColumnFilters: false,
+  gridDisplayedRowCount: null,
 };
 
 function reducer(state: AppState, action: AppAction): AppState {
@@ -50,6 +51,8 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, globalFilter: action.filter };
     case 'TOGGLE_COLUMN_FILTERS':
       return { ...state, showColumnFilters: !state.showColumnFilters };
+    case 'SET_GRID_ROW_COUNT':
+      return { ...state, gridDisplayedRowCount: action.rowCount };
     case 'RESET':
       return { ...initialState, duckdbReady: state.duckdbReady };
     default:

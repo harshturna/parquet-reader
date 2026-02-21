@@ -7,6 +7,7 @@ export function createDuckDBDatasource(
   baseTable: string,
   columnNames: string[],
   getGlobalFilter: () => string,
+  onTotalCount: (count: number) => void,
 ): IDatasource {
   return {
     rowCount: undefined,
@@ -32,6 +33,7 @@ export function createDuckDBDatasource(
 
       Promise.all([queryRows(dataSQL), queryCount(countSQL)])
         .then(([rows, total]) => {
+          onTotalCount(total);
           const lastRow = startRow + rows.length < total ? -1 : total;
           successCallback(rows, lastRow);
         })
