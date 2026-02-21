@@ -113,7 +113,7 @@ export function DataGrid() {
   }
 
   return (
-    <div className="flex-1">
+    <div className="flex-1 p-1">
       <AgGridReact
         theme={darkTheme}
         columnDefs={columns}

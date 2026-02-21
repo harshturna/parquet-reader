@@ -14,7 +14,7 @@ export function SchemaPanel() {
           Schema
         </h2>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 overflow-hidden">
         <div className="px-4 py-2">
           {metadata.schema.map((col) => (
             <div key={col.name} className="py-1.5">
