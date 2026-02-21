@@ -1,0 +1,135 @@
+import { useMemo, useRef, useCallback, useEffect } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import {
+  ModuleRegistry,
+  InfiniteRowModelModule,
+  TextFilterModule,
+  NumberFilterModule,
+  DateFilterModule,
+  TextEditorModule,
+  ValidationModule,
+  themeQuartz,
+  colorSchemeDark,
+  type GridReadyEvent,
+  type GridApi,
+  type ColDef,
+  type CellDoubleClickedEvent,
+} from 'ag-grid-community';
+import { toast } from 'sonner';
+import { useAppState } from '@/context/AppContext';
+import { createDuckDBDatasource } from '@/datasource/duckdbDatasource';
+import { columnsToColDefs } from '@/utils/typeMapper';
+
+ModuleRegistry.registerModules([
+  InfiniteRowModelModule,
+  TextFilterModule,
+  NumberFilterModule,
+  DateFilterModule,
+  TextEditorModule,
+  ValidationModule,
+]);
+
+const darkTheme = themeQuartz.withPart(colorSchemeDark).withParams({
+  backgroundColor: '#1a1a1a',
+  headerBackgroundColor: '#242424',
+  oddRowBackgroundColor: '#1f1f1f',
+  rowHoverColor: '#2a2a2a',
+  borderColor: 'rgba(255, 255, 255, 0.1)',
+  headerTextColor: '#a3a3a3',
+  foregroundColor: '#fafafa',
+  fontSize: 13,
+});
+
+export function DataGrid() {
+  const { metadata, duckdbReady, sqlResult, customSQL, globalFilter, showColumnFilters } =
+    useAppState();
+  const gridRef = useRef<GridApi>(null);
+  const globalFilterRef = useRef(globalFilter);
+
+  // Keep the ref in sync without triggering datasource recreation
+  globalFilterRef.current = globalFilter;
+
+  const columns: ColDef[] = useMemo(() => {
+    const schema = sqlResult && customSQL ? sqlResult.columns : metadata?.schema ?? [];
+    return columnsToColDefs(schema, showColumnFilters);
+  }, [metadata, sqlResult, customSQL, showColumnFilters]);
+
+  const columnNames = useMemo(
+    () => columns.map((c) => c.field!).filter(Boolean),
+    [columns],
+  );
+
+  const baseTable = useMemo(() => {
+    if (customSQL) return `(${customSQL}) AS _subq`;
+    return 'data';
+  }, [customSQL]);
+
+  const datasource = useMemo(() => {
+    if (!duckdbReady || columns.length === 0) return undefined;
+    return createDuckDBDatasource(baseTable, columnNames, () => globalFilterRef.current);
+  }, [duckdbReady, columns.length, baseTable, columnNames]);
+
+  // Set datasource on grid when it changes
+  useEffect(() => {
+    if (gridRef.current && datasource) {
+      gridRef.current.setGridOption('datasource', datasource);
+    }
+  }, [datasource]);
+
+  // Purge cache when globalFilter changes (datasource reads it via ref)
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.purgeInfiniteCache();
+    }
+  }, [globalFilter]);
+
+  const onGridReady = useCallback(
+    (params: GridReadyEvent) => {
+      gridRef.current = params.api;
+      if (datasource) {
+        params.api.setGridOption('datasource', datasource);
+      }
+    },
+    [datasource],
+  );
+
+  const onCellDoubleClicked = useCallback((event: CellDoubleClickedEvent) => {
+    const value = event.value;
+    const text = value === null || value === undefined ? '' : String(value);
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Copied to clipboard', {
+        description: text.length > 80 ? text.slice(0, 80) + '...' : text,
+        duration: 2000,
+      });
+    });
+  }, []);
+
+  if (!duckdbReady || columns.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        {!duckdbReady ? 'Initializing query engine...' : 'No data loaded'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1">
+      <AgGridReact
+        theme={darkTheme}
+        columnDefs={columns}
+        rowModelType="infinite"
+        cacheBlockSize={100}
+        maxBlocksInCache={10}
+        infiniteInitialRowCount={metadata?.rowCount ?? 1000}
+        onGridReady={onGridReady}
+        onCellDoubleClicked={onCellDoubleClicked}
+        defaultColDef={{
+          sortable: true,
+          resizable: true,
+          minWidth: 100,
+          flex: 1,
+        }}
+      />
+    </div>
+  );
+}

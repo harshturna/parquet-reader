@@ -1,0 +1,9 @@
+{
+  "name": "Parquet Reader",
+  "short_name": "Parquet Reader",
+  "description": "Open, explore, and query .parquet files directly in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a"
+}
