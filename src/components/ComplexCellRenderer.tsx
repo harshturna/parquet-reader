@@ -29,7 +29,7 @@ export function ComplexCellRenderer(params: ComplexCellRendererParams) {
   return (
     <button
       onClick={handleClick}
-      className="group flex w-full items-center gap-1.5 text-left font-mono text-xs leading-snug text-muted-foreground transition-colors hover:text-foreground"
+      className="group flex h-full w-full items-center gap-1.5 text-left font-mono text-xs leading-snug text-muted-foreground transition-colors hover:text-foreground"
     >
       <Badge
         variant="outline"

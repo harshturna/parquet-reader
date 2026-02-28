@@ -5,7 +5,7 @@ import { isComplexType, getComplexTypeKind } from './complexTypes';
 const CHAR_WIDTH = 8;
 const HEADER_PADDING = 32;
 const MIN_COL_WIDTH = 120;
-const MAX_COL_WIDTH = 300;
+const MAX_COL_WIDTH = 400;
 
 function calculateColumnWidth(headerName: string): number {
   const textWidth = headerName.length * CHAR_WIDTH + HEADER_PADDING;
@@ -52,9 +52,29 @@ function agFilter(duckdbType: string): string | false {
   return 'agTextColumnFilter';
 }
 
+export function computeContentWidths(
+  columns: ColumnSchema[],
+  sampleRows: Record<string, unknown>[],
+): Map<string, number> {
+  const widths = new Map<string, number>();
+  for (const col of columns) {
+    let maxLen = col.name.length;
+    for (const row of sampleRows) {
+      const val = row[col.name];
+      if (val === null || val === undefined) continue;
+      const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+      if (str.length > maxLen) maxLen = str.length;
+    }
+    const computed = maxLen * CHAR_WIDTH + HEADER_PADDING;
+    widths.set(col.name, Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, computed)));
+  }
+  return widths;
+}
+
 export function columnsToColDefs(
   columns: ColumnSchema[],
   showFilters: boolean,
+  contentWidths?: Map<string, number>,
   userWidths?: Map<string, number>,
 ): ColDef[] {
   return columns.map((col) => {
@@ -66,7 +86,9 @@ export function columnsToColDefs(
       sortable: true,
       resizable: true,
       minWidth: MIN_COL_WIDTH,
-      width: userWidths?.get(col.name) ?? calculateColumnWidth(col.name),
+      width: userWidths?.get(col.name)
+        ?? contentWidths?.get(col.name)
+        ?? calculateColumnWidth(col.name),
     };
 
     if (isComplexType(col.type)) {

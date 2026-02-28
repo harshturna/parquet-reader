@@ -8,7 +8,10 @@ export function createDuckDBDatasource(
   columnNames: string[],
   getGlobalFilter: () => string,
   onTotalCount: (count: number) => void,
+  onFirstBlock?: (rows: Record<string, unknown>[]) => void,
 ): IDatasource {
+  let firstBlockFired = false;
+
   return {
     rowCount: undefined,
 
@@ -34,6 +37,10 @@ export function createDuckDBDatasource(
       Promise.all([queryRows(dataSQL), queryCount(countSQL)])
         .then(([rows, total]) => {
           onTotalCount(total);
+          if (!firstBlockFired && startRow === 0 && onFirstBlock) {
+            firstBlockFired = true;
+            onFirstBlock(rows);
+          }
           const lastRow = startRow + rows.length < total ? -1 : total;
           successCallback(rows, lastRow);
         })

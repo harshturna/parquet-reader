@@ -3,6 +3,7 @@ import { AgGridReact } from 'ag-grid-react';
 import {
   ModuleRegistry,
   InfiniteRowModelModule,
+  ColumnAutoSizeModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
@@ -19,13 +20,14 @@ import {
 import { toast } from 'sonner';
 import { useAppState, useAppDispatch } from '@/context/AppContext';
 import { createDuckDBDatasource } from '@/datasource/duckdbDatasource';
-import { columnsToColDefs } from '@/utils/typeMapper';
+import { columnsToColDefs, computeContentWidths } from '@/utils/typeMapper';
 import { ComplexCellRenderer } from '@/components/ComplexCellRenderer';
 import { JsonViewerDialog, type JsonViewerState } from '@/components/JsonViewerDialog';
 import { serializeValue, parseComplexValue } from '@/utils/complexTypes';
 
 ModuleRegistry.registerModules([
   InfiniteRowModelModule,
+  ColumnAutoSizeModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
@@ -44,6 +46,30 @@ const darkTheme = themeQuartz.withPart(colorSchemeDark).withParams({
   fontSize: 13,
 });
 
+function fillLastColumn(api: GridApi) {
+  const allColumns = api.getColumns();
+  if (!allColumns || allColumns.length === 0) return;
+
+  let totalWidth = 0;
+  for (const col of allColumns) {
+    totalWidth += col.getActualWidth();
+  }
+
+  const gridEl = document.querySelector('.ag-body-viewport') as HTMLElement;
+  if (!gridEl) return;
+  const viewportWidth = gridEl.clientWidth;
+
+  if (totalWidth >= viewportWidth) return;
+
+  const columnLimits = allColumns.slice(0, -1).map((col) => ({
+    key: col.getColId(),
+    minWidth: col.getActualWidth(),
+    maxWidth: col.getActualWidth(),
+  }));
+
+  api.sizeColumnsToFit({ columnLimits });
+}
+
 export function DataGrid() {
   const { metadata, duckdbReady, sqlResult, customSQL, globalFilter, showColumnFilters, showStructuredView } =
     useAppState();
@@ -51,6 +77,8 @@ export function DataGrid() {
   const gridRef = useRef<GridApi>(null);
   const globalFilterRef = useRef(globalFilter);
   const userColWidths = useRef<Map<string, number>>(new Map());
+  const contentWidths = useRef<Map<string, number>>(new Map());
+  const initialSizingDone = useRef(false);
   const [jsonViewerState, setJsonViewerState] = useState<JsonViewerState | null>(null);
 
   // Keep the ref in sync without triggering datasource recreation
@@ -65,6 +93,8 @@ export function DataGrid() {
   useEffect(() => {
     if (prevSchemaKey.current !== schemaKey) {
       userColWidths.current = new Map();
+      contentWidths.current = new Map();
+      initialSizingDone.current = false;
       prevSchemaKey.current = schemaKey;
     }
   }, [schemaKey]);
@@ -77,7 +107,7 @@ export function DataGrid() {
 
   const columns: ColDef[] = useMemo(() => {
     const schema = sqlResult && customSQL ? sqlResult.columns : metadata?.schema ?? [];
-    const defs = columnsToColDefs(schema, showColumnFilters, userColWidths.current);
+    const defs = columnsToColDefs(schema, showColumnFilters, contentWidths.current, userColWidths.current);
     if (!showStructuredView) return defs;
     return defs.map((def) => {
       if (def.cellRendererParams?.isComplex) {
@@ -99,9 +129,31 @@ export function DataGrid() {
 
   const datasource = useMemo(() => {
     if (!duckdbReady || columns.length === 0) return undefined;
-    return createDuckDBDatasource(baseTable, columnNames, () => globalFilterRef.current, (count) => {
-      dispatch({ type: 'SET_GRID_ROW_COUNT', rowCount: count });
-    });
+    return createDuckDBDatasource(
+      baseTable,
+      columnNames,
+      () => globalFilterRef.current,
+      (count) => {
+        dispatch({ type: 'SET_GRID_ROW_COUNT', rowCount: count });
+      },
+      (rows) => {
+        if (initialSizingDone.current) return;
+        const schema = sqlResult && customSQL ? sqlResult.columns : metadata?.schema ?? [];
+        contentWidths.current = computeContentWidths(schema, rows);
+        initialSizingDone.current = true;
+
+        if (gridRef.current) {
+          const newDefs = columnsToColDefs(schema, showColumnFilters, contentWidths.current, userColWidths.current);
+          const finalDefs = showStructuredView
+            ? newDefs.map((def) =>
+                def.cellRendererParams?.isComplex ? { ...def, cellRenderer: ComplexCellRenderer } : def,
+              )
+            : newDefs;
+          gridRef.current.setGridOption('columnDefs', finalDefs);
+          fillLastColumn(gridRef.current);
+        }
+      },
+    );
   }, [duckdbReady, columns.length, baseTable, columnNames, dispatch]);
 
   // Set datasource on grid when it changes
