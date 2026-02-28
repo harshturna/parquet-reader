@@ -14,6 +14,7 @@ import {
   type GridApi,
   type ColDef,
   type CellDoubleClickedEvent,
+  type ColumnResizedEvent,
 } from 'ag-grid-community';
 import { toast } from 'sonner';
 import { useAppState, useAppDispatch } from '@/context/AppContext';
@@ -46,13 +47,27 @@ export function DataGrid() {
   const dispatch = useAppDispatch();
   const gridRef = useRef<GridApi>(null);
   const globalFilterRef = useRef(globalFilter);
+  const userColWidths = useRef<Map<string, number>>(new Map());
 
   // Keep the ref in sync without triggering datasource recreation
   globalFilterRef.current = globalFilter;
 
+  const schemaKey = useMemo(() => {
+    const schema = sqlResult && customSQL ? sqlResult.columns : metadata?.schema ?? [];
+    return schema.map((c) => c.name).join('\0');
+  }, [metadata, sqlResult, customSQL]);
+
+  const prevSchemaKey = useRef(schemaKey);
+  useEffect(() => {
+    if (prevSchemaKey.current !== schemaKey) {
+      userColWidths.current = new Map();
+      prevSchemaKey.current = schemaKey;
+    }
+  }, [schemaKey]);
+
   const columns: ColDef[] = useMemo(() => {
     const schema = sqlResult && customSQL ? sqlResult.columns : metadata?.schema ?? [];
-    return columnsToColDefs(schema, showColumnFilters);
+    return columnsToColDefs(schema, showColumnFilters, userColWidths.current);
   }, [metadata, sqlResult, customSQL, showColumnFilters]);
 
   const columnNames = useMemo(
@@ -96,6 +111,17 @@ export function DataGrid() {
     [datasource],
   );
 
+  const onColumnResized = useCallback((event: ColumnResizedEvent) => {
+    if (event.finished && event.source === 'uiColumnResized' && event.columns) {
+      for (const col of event.columns) {
+        const field = col.getColDef().field;
+        if (field) {
+          userColWidths.current.set(field, col.getActualWidth());
+        }
+      }
+    }
+  }, []);
+
   const onCellDoubleClicked = useCallback((event: CellDoubleClickedEvent) => {
     const value = event.value;
     const text = value === null || value === undefined ? '' : String(value);
@@ -126,11 +152,11 @@ export function DataGrid() {
         infiniteInitialRowCount={metadata?.rowCount ?? 1000}
         onGridReady={onGridReady}
         onCellDoubleClicked={onCellDoubleClicked}
+        onColumnResized={onColumnResized}
         defaultColDef={{
           sortable: true,
           resizable: true,
-          minWidth: 100,
-          flex: 1,
+          minWidth: 120,
         }}
       />
     </div>

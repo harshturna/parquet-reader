@@ -1,9 +1,8 @@
 import { useAppState } from '@/context/AppContext';
 import { Badge } from '@/components/ui/badge';
-import { formatNumber } from '@/utils/formatNumber';
 
 export function Header() {
-  const { fileName, metadata, status } = useAppState();
+  const { fileName, status } = useAppState();
 
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
@@ -22,11 +21,6 @@ export function Header() {
         </h1>
         {fileName && (
           <Badge variant="secondary">{fileName}</Badge>
-        )}
-        {metadata && (
-          <span className="text-sm text-muted-foreground">
-            {formatNumber(metadata.rowCount)} rows · {formatNumber(metadata.schema.length)} columns
-          </span>
         )}
         {status === 'loading-duckdb' && (
           <Badge variant="outline" className="text-amber-400 border-amber-400/30">

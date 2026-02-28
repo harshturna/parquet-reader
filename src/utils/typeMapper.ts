@@ -1,6 +1,16 @@
 import type { ColDef } from 'ag-grid-community';
 import type { ColumnSchema } from '../types';
 
+const CHAR_WIDTH = 8;
+const HEADER_PADDING = 32;
+const MIN_COL_WIDTH = 120;
+const MAX_COL_WIDTH = 300;
+
+function calculateColumnWidth(headerName: string): number {
+  const textWidth = headerName.length * CHAR_WIDTH + HEADER_PADDING;
+  return Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, textWidth));
+}
+
 function agFilter(duckdbType: string): string | false {
   const t = duckdbType.toUpperCase();
 
@@ -43,6 +53,7 @@ function agFilter(duckdbType: string): string | false {
 export function columnsToColDefs(
   columns: ColumnSchema[],
   showFilters: boolean,
+  userWidths?: Map<string, number>,
 ): ColDef[] {
   return columns.map((col) => ({
     field: col.name,
@@ -51,6 +62,7 @@ export function columnsToColDefs(
     floatingFilter: showFilters,
     sortable: true,
     resizable: true,
-    minWidth: 120,
+    minWidth: MIN_COL_WIDTH,
+    width: userWidths?.get(col.name) ?? calculateColumnWidth(col.name),
   }));
 }
