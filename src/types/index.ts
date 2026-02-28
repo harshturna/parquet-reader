@@ -3,9 +3,30 @@ export interface ColumnSchema {
   type: string;
 }
 
+export interface RowGroupColumnDetail {
+  path: string;
+  codec: string;
+  compressedSize: number;
+  uncompressedSize: number;
+}
+
+export interface RowGroupDetail {
+  numRows: number;
+  compressedSize: number;
+  uncompressedSize: number;
+  columns: RowGroupColumnDetail[];
+}
+
 export interface ParquetMetadata {
   schema: ColumnSchema[];
   rowCount: number;
+  version: number;
+  createdBy: string | null;
+  numRowGroups: number;
+  rowGroupDetails: RowGroupDetail[];
+  keyValueMetadata: { key: string; value: string }[];
+  totalCompressedSize: number;
+  totalUncompressedSize: number;
 }
 
 export interface SqlResult {
