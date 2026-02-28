@@ -1,5 +1,6 @@
 import type { ColDef } from 'ag-grid-community';
 import type { ColumnSchema } from '../types';
+import { isComplexType, getComplexTypeKind } from './complexTypes';
 
 const CHAR_WIDTH = 8;
 const HEADER_PADDING = 32;
@@ -41,7 +42,8 @@ function agFilter(duckdbType: string): string | false {
     t.includes('BLOB') ||
     t.includes('STRUCT') ||
     t.includes('LIST') ||
-    t.includes('MAP')
+    t.includes('MAP') ||
+    t === 'JSON'
   ) {
     return false;
   }
@@ -55,14 +57,26 @@ export function columnsToColDefs(
   showFilters: boolean,
   userWidths?: Map<string, number>,
 ): ColDef[] {
-  return columns.map((col) => ({
-    field: col.name,
-    headerName: col.name,
-    filter: showFilters ? agFilter(col.type) : false,
-    floatingFilter: showFilters,
-    sortable: true,
-    resizable: true,
-    minWidth: MIN_COL_WIDTH,
-    width: userWidths?.get(col.name) ?? calculateColumnWidth(col.name),
-  }));
+  return columns.map((col) => {
+    const def: ColDef = {
+      field: col.name,
+      headerName: col.name,
+      filter: showFilters ? agFilter(col.type) : false,
+      floatingFilter: showFilters,
+      sortable: true,
+      resizable: true,
+      minWidth: MIN_COL_WIDTH,
+      width: userWidths?.get(col.name) ?? calculateColumnWidth(col.name),
+    };
+
+    if (isComplexType(col.type)) {
+      def.cellRendererParams = {
+        columnType: col.type,
+        complexKind: getComplexTypeKind(col.type),
+        isComplex: true,
+      };
+    }
+
+    return def;
+  });
 }

@@ -18,6 +18,7 @@ const initialState: AppState = {
   sqlResult: null,
   globalFilter: '',
   showColumnFilters: false,
+  showStructuredView: false,
   gridDisplayedRowCount: null,
 };
 
@@ -51,6 +52,8 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, globalFilter: action.filter };
     case 'TOGGLE_COLUMN_FILTERS':
       return { ...state, showColumnFilters: !state.showColumnFilters };
+    case 'TOGGLE_STRUCTURED_VIEW':
+      return { ...state, showStructuredView: !state.showStructuredView };
     case 'SET_GRID_ROW_COUNT':
       return { ...state, gridDisplayedRowCount: action.rowCount };
     case 'RESET':

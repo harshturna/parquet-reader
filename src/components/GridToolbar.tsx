@@ -3,10 +3,10 @@ import { exportCSV } from '@/utils/exportCsv';
 import { formatNumber } from '@/utils/formatNumber';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Download, FilePlus, Filter, Search } from 'lucide-react';
+import { Braces, Download, FilePlus, Filter, Search } from 'lucide-react';
 
 export function GridToolbar() {
-  const { globalFilter, customSQL, sqlResult, metadata, showColumnFilters, gridDisplayedRowCount } = useAppState();
+  const { globalFilter, customSQL, sqlResult, metadata, showColumnFilters, showStructuredView, gridDisplayedRowCount } = useAppState();
   const dispatch = useAppDispatch();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,6 +24,10 @@ export function GridToolbar() {
 
   const handleToggleFilters = () => {
     dispatch({ type: 'TOGGLE_COLUMN_FILTERS' });
+  };
+
+  const handleToggleStructuredView = () => {
+    dispatch({ type: 'TOGGLE_STRUCTURED_VIEW' });
   };
 
   return (
@@ -57,6 +61,15 @@ export function GridToolbar() {
       >
         <Filter className="h-4 w-4" />
         Filters
+      </Button>
+      <Button
+        variant={showStructuredView ? 'secondary' : 'outline'}
+        size="sm"
+        onClick={handleToggleStructuredView}
+        title="Toggle structured view for complex types"
+      >
+        <Braces className="h-4 w-4" />
+        Structured
       </Button>
       <Button variant="outline" size="sm" onClick={handleExport}>
         <Download className="h-4 w-4" />

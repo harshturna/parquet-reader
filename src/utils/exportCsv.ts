@@ -21,7 +21,10 @@ export async function exportCSV(
       .map((c) => {
         const val = row[c];
         if (val === null || val === undefined) return '';
-        const str = String(val);
+        const str =
+          typeof val === 'object' && val !== null
+            ? JSON.stringify(val, (_k, v) => (typeof v === 'bigint' ? Number(v) : v))
+            : String(val);
         if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
           return `"${str.replace(/"/g, '""')}"`;
         }

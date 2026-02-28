@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
   ModuleRegistry,
@@ -20,6 +20,9 @@ import { toast } from 'sonner';
 import { useAppState, useAppDispatch } from '@/context/AppContext';
 import { createDuckDBDatasource } from '@/datasource/duckdbDatasource';
 import { columnsToColDefs } from '@/utils/typeMapper';
+import { ComplexCellRenderer } from '@/components/ComplexCellRenderer';
+import { JsonViewerDialog, type JsonViewerState } from '@/components/JsonViewerDialog';
+import { serializeValue, parseComplexValue } from '@/utils/complexTypes';
 
 ModuleRegistry.registerModules([
   InfiniteRowModelModule,
@@ -42,12 +45,13 @@ const darkTheme = themeQuartz.withPart(colorSchemeDark).withParams({
 });
 
 export function DataGrid() {
-  const { metadata, duckdbReady, sqlResult, customSQL, globalFilter, showColumnFilters } =
+  const { metadata, duckdbReady, sqlResult, customSQL, globalFilter, showColumnFilters, showStructuredView } =
     useAppState();
   const dispatch = useAppDispatch();
   const gridRef = useRef<GridApi>(null);
   const globalFilterRef = useRef(globalFilter);
   const userColWidths = useRef<Map<string, number>>(new Map());
+  const [jsonViewerState, setJsonViewerState] = useState<JsonViewerState | null>(null);
 
   // Keep the ref in sync without triggering datasource recreation
   globalFilterRef.current = globalFilter;
@@ -65,10 +69,23 @@ export function DataGrid() {
     }
   }, [schemaKey]);
 
+  const gridContext = useMemo(() => ({
+    onViewComplexValue: (columnName: string, columnType: string, value: unknown) => {
+      setJsonViewerState({ columnName, columnType, value });
+    },
+  }), []);
+
   const columns: ColDef[] = useMemo(() => {
     const schema = sqlResult && customSQL ? sqlResult.columns : metadata?.schema ?? [];
-    return columnsToColDefs(schema, showColumnFilters, userColWidths.current);
-  }, [metadata, sqlResult, customSQL, showColumnFilters]);
+    const defs = columnsToColDefs(schema, showColumnFilters, userColWidths.current);
+    if (!showStructuredView) return defs;
+    return defs.map((def) => {
+      if (def.cellRendererParams?.isComplex) {
+        return { ...def, cellRenderer: ComplexCellRenderer };
+      }
+      return def;
+    });
+  }, [metadata, sqlResult, customSQL, showColumnFilters, showStructuredView]);
 
   const columnNames = useMemo(
     () => columns.map((c) => c.field!).filter(Boolean),
@@ -124,7 +141,13 @@ export function DataGrid() {
 
   const onCellDoubleClicked = useCallback((event: CellDoubleClickedEvent) => {
     const value = event.value;
-    const text = value === null || value === undefined ? '' : String(value);
+    const resolved = parseComplexValue(value);
+    const isComplex = resolved !== value || (typeof resolved === 'object' && resolved !== null);
+    const text = isComplex
+      ? serializeValue(resolved)
+      : value === null || value === undefined
+        ? ''
+        : String(value);
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard', {
         description: text.length > 80 ? text.slice(0, 80) + '...' : text,
@@ -153,11 +176,16 @@ export function DataGrid() {
         onGridReady={onGridReady}
         onCellDoubleClicked={onCellDoubleClicked}
         onColumnResized={onColumnResized}
+        context={gridContext}
         defaultColDef={{
           sortable: true,
           resizable: true,
           minWidth: 120,
         }}
+      />
+      <JsonViewerDialog
+        state={jsonViewerState}
+        onClose={() => setJsonViewerState(null)}
       />
     </div>
   );
